@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equipment Classifier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #webcam-container, .label, .maintenance-info {
+            margin: 10px;
+        }
+        .start-btn {
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 시작 버튼 -->
+    <button class="start-btn" onclick="startCamera()">웹캠 시작</button>
+
+    <!-- 웹캠 화면 -->
+    <div id="webcam-container"></div>
+
+    <!-- 인식 결과 -->
+    <div class="label" id="label-container">장비 인식 결과가 여기에 표시됩니다.</div>
+    <div class="maintenance-info" id="info-container">유지보수 정보가 여기에 표시됩니다.</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+    <script>
+        const modelURL = "https://b4060510.github.io/newai3/model.json";
+        const metadataURL = "https://b4060510.github.io/newai3/metadata.json";
+        let model, webcam, labelContainer, infoContainer;
+
+        async function startCamera() {
+            // 모델 로드
+            model = await tmImage.load(modelURL, metadataURL);
+
+            // 웹캠 설정 및 시작
+            const flip = false; // 환경 카메라 사용
+            webcam = new tmImage.Webcam(300, 300, flip);
+            await webcam.setup(); // 웹캠 권한 요청
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // 웹캠 화면 추가
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            infoContainer = document.getElementById("info-container");
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            const highestPrediction = prediction.reduce((prev, current) => (prev.probability > current.probability) ? prev : current);
+
+            // 인식된 결과에 따른 유지보수 정보 표시
+            switch (highestPrediction.className) {
+                case "co2":
+                    labelContainer.innerHTML = "CO2 소화기 감지됨";
+                    infoContainer.innerHTML = "유지보수: 압력시험, 방출시간 약 30초, 방출거리 약 5m.";
+                    break;
+                case "foam":
+                    labelContainer.innerHTML = "FOAM 소화기 감지됨";
+                    infoContainer.innerHTML = "유지보수: 외부 손상 확인, 레버패킹 확인.";
+                    break;
+                case "powder":
+                    labelContainer.innerHTML = "POWDER 소화기 감지됨";
+                    infoContainer.innerHTML = "유지보수: 부식 및 손상 여부 검사, 압력게이지 확인.";
+                    break;
+                case "eebd":
+                    labelContainer.innerHTML = "EEBD 감지됨";
+                    infoContainer.innerHTML = "사용 시간: 최소 10분, 불연성 재질.";
+                    break;
+                case "scba":
+                    labelContainer.innerHTML = "SCBA 감지됨";
+                    infoContainer.innerHTML = "사용 시간: 최소 30분, 예비 충전기 보유.";
+                    break;
+                case "liferaft":
+                    labelContainer.innerHTML = "LIFERAFT 감지됨";
+                    infoContainer.innerHTML = "구성품: 구명 고리, Sea anchor 포함.";
+                    break;
+                default:
+                    labelContainer.innerHTML = "아무 항목도 감지되지 않았습니다.";
+                    infoContainer.innerHTML = "";
+            }
+        }
+    </script>
+</body>
+</html>
